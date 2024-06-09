@@ -1,0 +1,273 @@
+
+RYE SDK
+
+##bash, install rye
+curl -sSL https://rye-up.com/get | sh
+
+
+## bash, new rye project
+rye init weather-sdk
+cd weather-sdk
+
+
+## bash, add dependencies
+rye add requests
+
+
+## bash, project structure
+
+mkdir -p weather_sdk
+touch weather_sdk/__init__.py
+touch weather_sdk/weather.py
+touch weather_sdk/auth.py
+touch weather_sdk/utils.py
+touch README.md
+touch tests/ test_weather.py
+touch pyproject.toml
+
+
+
+
+weather_sdk/weather.py
+
+import requests
+from .auth import get_auth_headers
+
+class WeatherClient:
+    def __init__(self, api_key):
+        """Initialize the WeatherClient with an API key and base URL."""
+        self.api_key = api_key
+        self.base_url = "https://api.weatherservice.com/v1"
+
+    def get_current_weather(self, location):
+        """Fetch current weather data for the given location."""
+        url = f"{self.base_url}/current"
+        params = {"location": location}
+        headers = get_auth_headers(self.api_key)
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()  # Raise an error for bad responses
+        return response.json()
+
+    def get_forecast(self, location, days=5):
+        """Fetch weather forecast for the given location and number of days."""
+        url = f"{self.base_url}/forecast"
+        params = {"location": location, "days": days}
+        headers = get_auth_headers(self.api_key)
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()  # Raise an error for bad responses
+        return response.json()
+
+    def get_historical_weather(self, location, start_date, end_date):
+        """Fetch historical weather data for the given location and date range."""
+        url = f"{self.base_url}/historical"
+        params = {"location": location, "start_date": start_date, "end_date": end_date}
+        headers = get_auth_headers(self.api_key)
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()  # Raise an error for bad responses
+        return response.json()
+
+
+
+
+
+/auth.py
+
+def get_auth_headers(api_key):
+    """Return the headers required for authenticating API requests."""
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+
+
+
+
+/utils.py
+
+import json
+
+def pretty_print(json_data):
+    """Pretty-print JSON data for better readability."""
+    print(json.dumps(json_data, indent=4, sort_keys=True))
+
+
+README.md
+
+-create documentation
+
+
+USAGE
+
+from weather_sdk.weather import WeatherClient
+
+# Initialize the client with your API key
+api_key = "your_api_key_here"
+client = WeatherClient(api_key)
+
+# Get current weather
+current_weather = client.get_current_weather("New York")
+print(current_weather)
+
+# Get weather forecast
+forecast = client.get_forecast("New York", days=7)
+print(forecast)
+
+# Get historical weather data
+historical_weather = client.get_historical_weather("New York", "2023-01-01", "2023-01-07")
+print(historical_weather)
+
+
+
+
+
+EXAMPLE with Prettyprint
+from weather_sdk.utils import pretty_print
+
+pretty_print(current_weather)
+
+
+EX
+
+### Example Script
+
+An example script demonstrating how to use the SDK.
+
+```python
+from weather_sdk.weather import WeatherClient
+from weather_sdk.utils import pretty_print
+
+# Replace with your actual API key
+api_key = "your_api_key_here"
+client = WeatherClient(api_key)
+
+# Get current weather
+current_weather = client.get_current_weather("New York")
+pretty_print(current_weather)
+
+# Get weather forecast
+forecast = client.get_forecast("New York", days=7)
+pretty_print(forecast)
+
+# Get historical weather data
+historical_weather = client.get_historical_weather("New York", "2023-01-01", "2023-01-07")
+pretty_print(historical_weather)
+
+
+
+SETUP for DISTRIBUTION
+# create pyproject.toml file 
+## toml
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weather-sdk"
+version = "0.1.0"
+description = "A Python SDK for the Weather Service API"
+authors = [{name = "Your Name", email = "your_email@example.com"}]
+dependencies = ["requests"]
+
+[tool.rye]
+build = ["sdist", "wheel"]
+
+
+
+TESTING
+##bash
+mkdir tests
+touch tests/test_weather.py
+
+
+/test_weather.py
+
+import unittest
+from unittest.mock import patch
+from weather_sdk.weather import WeatherClient
+
+class TestWeatherClient(unittest.TestCase):
+
+    def setUp(self):
+        """Set up the WeatherClient for testing with a test API key."""
+        self.client = WeatherClient(api_key="test_api_key")
+
+    @patch('weather_sdk.weather.requests.get')
+    def test_get_current_weather(self, mock_get):
+        """Test fetching current weather data."""
+        mock_response = {
+            "location": "New York",
+            "temperature": "15°C",
+            "description": "Sunny"
+        }
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_response
+
+        response = self.client.get_current_weather("New York")
+        self.assertEqual(response, mock_response)
+        mock_get.assert_called_once_with(
+            'https://api.weatherservice.com/v1/current',
+            params={"location": "New York"},
+            headers={'Authorization': 'Bearer test_api_key', 'Content-Type': 'application/json'}
+        )
+
+    @patch('weather_sdk.weather.requests.get')
+    def test_get_forecast(self, mock_get):
+        """Test fetching weather forecast."""
+        mock_response = {
+            "location": "New York",
+            "forecast": [
+                {"day": "Monday", "temperature": "16°C", "description": "Partly cloudy"},
+                {"day": "Tuesday", "temperature": "18°C", "description": "Sunny"},
+            ]
+        }
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_response
+
+        response = self.client.get_forecast("New York", days=2)
+        self.assertEqual(response, mock_response)
+        mock_get.assert_called_once_with(
+            'https://api.weatherservice.com/v1/forecast',
+            params={"location": "New York", "days": 2},
+            headers={'Authorization': 'Bearer test_api_key', 'Content-Type': 'application/json'}
+        )
+
+    @patch('weather_sdk.weather.requests.get')
+    def test_get_historical_weather(self, mock_get):
+        """Test fetching historical weather data."""
+        mock_response = {
+            "location": "New York",
+            "historical": [
+                {"date": "2023-01-01", "temperature": "5°C", "description": "Cloudy"},
+                {"date": "2023-01-02", "temperature": "6°C", "description": "Rainy"},
+            ]
+        }
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = mock_response
+
+        response = self.client.get_historical_weather("New York", "2023-01-01", "2023-01-02")
+        self.assertEqual(response, mock_response)
+        mock_get.assert_called_once_with(
+            'https://api.weatherservice.com/v1/historical',
+            params={"location": "New York", "start_date": "2023-01-01", "end_date": "2023-01-02"},
+            headers={'Authorization': 'Bearer test_api_key', 'Content-Type': 'application/json'}
+        )
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+
+
+## bash
+rye run pytest
+
+
+
+BUILD and PUBLISH
+# create weatherproject.toml
+
+##bash
+rye build
+rye publish
+
