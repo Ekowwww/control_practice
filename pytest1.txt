@@ -1,0 +1,85 @@
+in a utils.py file, create sample database to be used
+import pandas as pd
+
+def get_mock_dataframe():
+    data = {
+        'column1': [1, 2, 3],
+        'column2': ['A', 'B', 'C'],
+        'column3': [True, False, True]
+    }
+    df = pd.DataFrame(data)
+    return df
+
+
+using it in a unittest
+
+import unittest
+from unittest.mock import patch
+from my_api_client import APIClient  # Replace with your actual import
+from utils import get_mock_dataframe
+
+class TestAPIClient(unittest.TestCase):
+
+    def setUp(self):
+        self.client = APIClient(base_url="http://example.com")
+        self.mock_dataframe = get_mock_dataframe()
+
+    @patch('requests.post')
+    def test_api_with_dataframe(self, mock_post):
+        # Configure the mock to return a response with the desired characteristics
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"success": True}
+
+        # Assuming your API client has a method that accepts a DataFrame
+        response = self.client.post_data(dataframe=self.mock_dataframe)
+        
+        # Perform your assertions
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"success": True})
+        mock_post.assert_called_once()
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+
+
+-----------
+
+
+testing schema to df
+
+1. api function
+def df_to_schema(df):
+    schema = []
+    for column in df.columns:
+        schema.append({
+            'name': column,
+            'type': str(df[column].dtype)
+        })
+    return schema
+
+
+2. utility function with sample df
+
+3. test function
+import unittest
+from my_api import df_to_schema
+from utils import get_mock_dataframe
+
+class TestMyAPI(unittest.TestCase):
+
+    def setUp(self):
+        self.mock_dataframe = get_mock_dataframe()
+        self.expected_schema = [
+            {'name': 'column1', 'type': 'int64'},
+            {'name': 'column2', 'type': 'object'},
+            {'name': 'column3', 'type': 'bool'}
+        ]
+
+    def test_df_to_schema(self):
+        result = df_to_schema(self.mock_dataframe)
+        self.assertEqual(result, self.expected_schema)
+
+if __name__ == "__main__":
+    unittest.main()
