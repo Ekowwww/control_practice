@@ -1,0 +1,62 @@
+import pytest
+from unittest.mock import patch, MagicMock
+import warnings
+import pandas as pd
+from typing import Union, Optional
+from your_module import YourClass, Types  # Replace with the actual module and class name
+
+@pytest.fixture
+def instance():
+    return YourClass()
+
+def test_update_attribute_meta_forbidden_always(instance):
+    """Test updating forbidden metadata fields always raises ValueError"""
+    forbidden_always = ["identifieer", "index", "unit"]
+    
+    for field in forbidden_always:
+        with pytest.raises(ValueError) as excinfo:
+            instance.update_attribute_meta("attr", field, "new_value", "dataset_id")
+        assert f"Forbidden from changing {field}" in str(excinfo.value)
+
+@patch('your_module.YourClass.list_datasetmembers', return_value=['some_member'])
+def test_update_attribute_meta_forbidden_after_series(mock_list_members, instance):
+    """Test updating forbidden metadata fields after series raises ValueError"""
+    forbidden_after_series = ["isDatasetKey", "dataType", "isInternalDarasetKey", "isExternalDatasetKey"]
+    
+    for field in forbidden_after_series:
+        with pytest.raises(ValueError) as excinfo:
+            instance.update_attribute_meta("attr", field, "new_value", "dataset_id")
+        assert f"Forbidden from changing {field}" in str(excinfo.value)
+
+@patch('your_module.YourClass.list_datasetmembers', return_value=[])
+@patch('your_module.YourClass.list_dataset_attributes')
+@patch('your_module.YourClass.api_attributes_to_attributes_list')
+@patch('your_module.YourClass.create_attributes')
+def test_update_attribute_meta_success(mock_create_attributes, mock_api_attributes, mock_list_attributes, mock_list_members, instance):
+    """Test successful update of metadata field"""
+    mock_list_attributes.return_value = pd.DataFrame({"identifier": ["attr"], "index": [0]})
+    mock_api_attributes.return_value = [MagicMock()]
+
+    response = instance.update_attribute_meta("attr", "dataType", "new_value", "dataset_id")
+    
+    # Check if the metadata field was updated and create_attributes was called
+    assert mock_create_attributes.called
+
+@patch('your_module.YourClass.list_datasetmembers', return_value=[])
+@patch('your_module.YourClass.list_dataset_attributes')
+@patch('your_module.YourClass.api_attributes_to_attributes_list')
+@patch('your_module.YourClass.create_attributes')
+def test_update_attribute_meta_dataType(mock_create_attributes, mock_api_attributes, mock_list_attributes, mock_list_members, instance):
+    """Test updating the dataType field"""
+    mock_list_attributes.return_value = pd.DataFrame({"identifier": ["attr"], "index": [0]})
+    mock_api_attributes.return_value = [MagicMock()]
+    
+    response = instance.update_attribute_meta("attr", "dataType", "new_value", "dataset_id")
+    
+    # Check if the new_value was correctly transformed
+    transformed_value = mock_api_attributes.return_value[0].dataType
+    assert transformed_value == Types['NewValue']
+    assert mock_create_attributes.called
+
+if __name__ == '__main__':
+    pytest.main()
