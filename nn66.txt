@@ -1,0 +1,116 @@
+import pytest
+from unittest.mock import Mock, patch
+from your_module import YourClass  # Replace with your actual module and class name
+
+# Define a fixture to set up the necessary context
+@pytest.fixture
+def api_client():
+    client = YourClass()
+    client.root_url = "http://example.com/"  # Set the base URL
+    client.default_catalog = "common"  # Set the default catalog
+    client.session = Mock()  # Mock the session object
+    return client
+
+def test_update_product_dataset_mapping_single_dataset(api_client):
+    product = "product1"
+    dataset = "dataset1"
+    catalog = "custom_catalog"
+
+    # Mock the responses for product and dataset existence checks
+    api_client.session.get.side_effect = [
+        Mock(status_code=200),  # Product exists
+        Mock(status_code=200)   # Dataset exists
+    ]
+
+    # Mock the response for the PUT request
+    mock_put_response = Mock(status_code=200)
+    api_client.session.put.return_value = mock_put_response
+
+    response = api_client.update_product_dataset_mapping(product, dataset, catalog)
+
+    # Assertions
+    assert response.status_code == 200
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/{catalog}/products/{product}")
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/{catalog}/datasets/{dataset}")
+    api_client.session.put.assert_called_once_with(
+        url=f"http://example.com/catalogs/{catalog}/productDatasets",
+        json={"product": product, "datasets": [dataset]}
+    )
+
+def test_update_product_dataset_mapping_multiple_datasets(api_client):
+    product = "product1"
+    datasets = ["dataset1", "dataset2"]
+    catalog = "custom_catalog"
+
+    # Mock the responses for product and datasets existence checks
+    api_client.session.get.side_effect = [
+        Mock(status_code=200),  # Product exists
+        Mock(status_code=200),  # First dataset exists
+        Mock(status_code=200)   # Second dataset exists
+    ]
+
+    # Mock the response for the PUT request
+    mock_put_response = Mock(status_code=200)
+    api_client.session.put.return_value = mock_put_response
+
+    response = api_client.update_product_dataset_mapping(product, datasets, catalog)
+
+    # Assertions
+    assert response.status_code == 200
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/{catalog}/products/{product}")
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/{catalog}/datasets/{datasets[0]}")
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/{catalog}/datasets/{datasets[1]}")
+    api_client.session.put.assert_called_once_with(
+        url=f"http://example.com/catalogs/{catalog}/productDatasets",
+        json={"product": product, "datasets": datasets}
+    )
+
+def test_update_product_dataset_mapping_default_catalog(api_client):
+    product = "product1"
+    datasets = ["dataset1"]
+
+    # Mock the responses for product and dataset existence checks
+    api_client.session.get.side_effect = [
+        Mock(status_code=200),  # Product exists
+        Mock(status_code=200)   # Dataset exists
+    ]
+
+    # Mock the response for the PUT request
+    mock_put_response = Mock(status_code=200)
+    api_client.session.put.return_value = mock_put_response
+
+    response = api_client.update_product_dataset_mapping(product, datasets)
+
+    # Assertions
+    assert response.status_code == 200
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/common/products/{product}")
+    api_client.session.get.assert_any_call(url=f"http://example.com/catalogs/common/datasets/{datasets[0]}")
+    api_client.session.put.assert_called_once_with(
+        url=f"http://example.com/catalogs/common/productDatasets",
+        json={"product": product, "datasets": datasets}
+    )
+
+def test_update_product_dataset_mapping_product_not_found(api_client):
+    product = "product1"
+    datasets = ["dataset1"]
+
+    # Mock the response for product not found
+    api_client.session.get.side_effect = [
+        Mock(status_code=404)  # Product not found
+    ]
+
+    with pytest.raises(ValueError, match=f"{product} not found"):
+        api_client.update_product_dataset_mapping(product, datasets)
+
+def test_update_product_dataset_mapping_dataset_not_found(api_client):
+    product = "product1"
+    datasets = ["dataset1"]
+
+    # Mock the responses for product existence and dataset not found
+    api_client.session.get.side_effect = [
+        Mock(status_code=200),  # Product exists
+        Mock(status_code=404)   # Dataset not found
+    ]
+
+    with pytest.raises(ValueError, match=f"{datasets[0]} not found"):
+        api_client.update_product_dataset_mapping(product, datasets)
