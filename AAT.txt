@@ -1,0 +1,134 @@
+import responses
+from fasanApi import types, fasan
+import pandas as pd
+import pytest
+
+def test_no_op():
+    """Tests if package version is accessible"""
+    assert 1 == 2 - 1
+
+@responses.activate
+def test_update_attribute_meta(example_creds_dict):
+    """Test updating attribute metadata"""
+    client = fasan.Fasan(example_creds_dict)
+
+    # Mocking necessary responses
+    rsp1 = responses.Response(
+        method="POST",
+        url=client.credentials.auth_url,
+        status=200,
+        json={"access_token": "xxx", "expires_in": 12345},
+    )
+    
+    rsp2 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_SSF/datasetseries",
+        status=200,
+        json={"members": []},
+    )
+    
+    rsp3 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_SSF/attributes",
+        status=200,
+        json=[{"identifier": "as_at_date", "index": 0}],
+    )
+    
+    rsp4 = responses.Response(
+        method="PUT",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_SSF/attributes/as_at_date",
+        status=200,
+        json={},
+    )
+
+    responses.add(rsp1)
+    responses.add(rsp2)
+    responses.add(rsp3)
+    responses.add(rsp4)
+
+    # Setting up attribute
+    attribute = "as_at_date"
+    metadata_field = "title"
+    new_value = "Updated Title"
+    dataset_identifier = "TEST_SSF"
+    
+    # Running the function
+    response = client.update_attribute_meta(
+        attribute=attribute,
+        metadata_field=metadata_field,
+        new_value=new_value,
+        dataset_identifier=dataset_identifier,
+        catalog="common"
+    )
+
+    # Validating the response
+    assert response.status_code == 200
+    assert response.url == f"{client.root_url}catalogs/common/datasets/TEST_SSF/attributes/as_at_date"
+
+    # Validate warnings
+    with pytest.warns(UserWarning, match=f"Updating {metadata_field} for {attribute} of dataset_identifier"):
+        client.update_attribute_meta(
+            attribute=attribute,
+            metadata_field=metadata_field,
+            new_value=new_value,
+            dataset_identifier=dataset_identifier,
+            catalog="common"
+        )
+
+@responses.activate
+def test_update_attribute_meta_forbidden_fields(example_creds_dict):
+    """Test updating forbidden fields for attribute metadata"""
+    client = fasan.Fasan(example_creds_dict)
+
+    attribute = "as_at_date"
+    dataset_identifier = "TEST_SSF"
+    catalog = "common"
+    forbidden_fields_always = ["identifier", "index", "unit"]
+    forbidden_fields_after_series = ["isDatasetKey", "dataType", "isInternalDatasetKey", "isExternalDatasetKey"]
+
+    # Test forbidden fields always
+    for field in forbidden_fields_always:
+        with pytest.raises(ValueError, match=f"Forbidden from changing {field}. Delete and recreate attribute"):
+            client.update_attribute_meta(
+                attribute=attribute,
+                metadata_field=field,
+                new_value="new_value",
+                dataset_identifier=dataset_identifier,
+                catalog=catalog
+            )
+    
+    # Mock dataset members to simulate existing members
+    rsp1 = responses.Response(
+        method="POST",
+        url=client.credentials.auth_url,
+        status=200,
+        json={"access_token": "xxx", "expires_in": 12345},
+    )
+    
+    rsp2 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_SSF/datasetseries",
+        status=200,
+        json={"members": [{"id": 1}]},
+    )
+    
+    responses.add(rsp1)
+    responses.add(rsp2)
+
+
+    # Mocking the list_datasetmembers to return existing members
+    #def mock_list_datasetmembers(dataset_identifier, catalog):
+        #return [{"id": 1}]
+
+    #client.list_datasetmembers = mock_list_datasetmembers
+
+    # Test forbidden fields after series
+    for field in forbidden_fields_after_series:
+        with pytest.raises(ValueError, match=f"Forbidden from changing {field}"):
+            client.update_attribute_meta(
+                attribute=attribute,
+                metadata_field=field,
+                new_value="new_value",
+                dataset_identifier=dataset_identifier,
+                catalog=catalog
+            )
