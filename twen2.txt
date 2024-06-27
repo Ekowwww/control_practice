@@ -1,0 +1,197 @@
+import responses
+from fasanApi import fasan
+import pytest
+
+def test_no_op():
+    """Tests if package version is accessible"""
+    assert 1 == 2 - 1
+
+@responses.activate
+def test_update_product_dataset_mapping_single_dataset(example_creds_dict):
+    """Test updating product dataset mapping with a single dataset"""
+    client = fasan.Fasan(example_creds_dict)
+
+    # Mocking necessary responses
+    rsp1 = responses.Response(
+        method="POST",
+        url=client.credentials.auth_url,
+        status=200,
+        json={"access_token": "xxx", "expires_in": 12345},
+    )
+    
+    rsp2 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/products/TEST_PRODUCT",
+        status=200,
+        json={},
+    )
+    
+    rsp3 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_DATASET",
+        status=200,
+        json={},
+    )
+    
+    rsp4 = responses.Response(
+        method="PUT",
+        url=f"{client.root_url}catalogs/common/productDatasets",
+        status=200,
+        json={"product": "TEST_PRODUCT", "datasets": ["TEST_DATASET"]},
+    )
+
+    responses.add(rsp1)
+    responses.add(rsp2)
+    responses.add(rsp3)
+    responses.add(rsp4)
+
+    product = "TEST_PRODUCT"
+    dataset = "TEST_DATASET"
+    
+    # Running the function
+    response = client.update_product_dataset_mapping(
+        product=product,
+        datasets=dataset,
+        catalog="common"
+    )
+
+    # Validating the response
+    assert response.status_code == 200
+    assert response.json() == {"product": product, "datasets": [dataset]}
+
+@responses.activate
+def test_update_product_dataset_mapping_multiple_datasets(example_creds_dict):
+    """Test updating product dataset mapping with multiple datasets"""
+    client = fasan.Fasan(example_creds_dict)
+
+    # Mocking necessary responses
+    rsp1 = responses.Response(
+        method="POST",
+        url=client.credentials.auth_url,
+        status=200,
+        json={"access_token": "xxx", "expires_in": 12345},
+    )
+    
+    rsp2 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/products/TEST_PRODUCT",
+        status=200,
+        json={},
+    )
+    
+    rsp3 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_DATASET1",
+        status=200,
+        json={},
+    )
+    
+    rsp4 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/TEST_DATASET2",
+        status=200,
+        json={},
+    )
+    
+    rsp5 = responses.Response(
+        method="PUT",
+        url=f"{client.root_url}catalogs/common/productDatasets",
+        status=200,
+        json={"product": "TEST_PRODUCT", "datasets": ["TEST_DATASET1", "TEST_DATASET2"]},
+    )
+
+    responses.add(rsp1)
+    responses.add(rsp2)
+    responses.add(rsp3)
+    responses.add(rsp4)
+    responses.add(rsp5)
+
+    product = "TEST_PRODUCT"
+    datasets = ["TEST_DATASET1", "TEST_DATASET2"]
+    
+    # Running the function
+    response = client.update_product_dataset_mapping(
+        product=product,
+        datasets=datasets,
+        catalog="common"
+    )
+
+    # Validating the response
+    assert response.status_code == 200
+    assert response.json() == {"product": product, "datasets": datasets}
+
+@responses.activate
+def test_update_product_dataset_mapping_product_not_found(example_creds_dict):
+    """Test updating product dataset mapping when the product is not found"""
+    client = fasan.Fasan(example_creds_dict)
+
+    # Mocking necessary responses
+    rsp1 = responses.Response(
+        method="POST",
+        url=client.credentials.auth_url,
+        status=200,
+        json={"access_token": "xxx", "expires_in": 12345},
+    )
+    
+    rsp2 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/products/NON_EXISTENT_PRODUCT",
+        status=404,
+        json={},
+    )
+
+    responses.add(rsp1)
+    responses.add(rsp2)
+
+    product = "NON_EXISTENT_PRODUCT"
+    dataset = "TEST_DATASET"
+    
+    # Running the function and expecting ValueError
+    with pytest.raises(ValueError, match=f"{product} not found"):
+        client.update_product_dataset_mapping(
+            product=product,
+            datasets=dataset,
+            catalog="common"
+        )
+
+@responses.activate
+def test_update_product_dataset_mapping_dataset_not_found(example_creds_dict):
+    """Test updating product dataset mapping when a dataset is not found"""
+    client = fasan.Fasan(example_creds_dict)
+
+    # Mocking necessary responses
+    rsp1 = responses.Response(
+        method="POST",
+        url=client.credentials.auth_url,
+        status=200,
+        json={"access_token": "xxx", "expires_in": 12345},
+    )
+    
+    rsp2 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/products/TEST_PRODUCT",
+        status=200,
+        json={},
+    )
+    
+    rsp3 = responses.Response(
+        method="GET",
+        url=f"{client.root_url}catalogs/common/datasets/NON_EXISTENT_DATASET",
+        status=404,
+        json={},
+    )
+
+    responses.add(rsp1)
+    responses.add(rsp2)
+    responses.add(rsp3)
+
+    product = "TEST_PRODUCT"
+    dataset = "NON_EXISTENT_DATASET"
+    
+    # Running the function and expecting ValueError
+    with pytest.raises(ValueError, match=f"{dataset} not found"):
+        client.update_product_dataset_mapping(
+            product=product,
+            datasets=dataset,
+            catalog="common"
+        )
